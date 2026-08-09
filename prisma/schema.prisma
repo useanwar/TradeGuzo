@@ -1,0 +1,81 @@
+// Single-user, self-hosted schema.
+// No User model, no per-user scoping — one deployment = one trader.
+// Auth is handled entirely via env vars (see lib/auth.ts), not DB rows.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+model TradingAccount {
+  id             String   @id @default(uuid())
+  accountNumber  Int
+  brokerName     String
+  currency       String   @default("USD")
+  initialBalance Float    @default(10000.0)
+  trades         Trade[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Prevents the EA from creating duplicate account rows if it re-registers
+  @@unique([accountNumber, brokerName])
+}
+
+model Trade {
+  id        String    @id @default(uuid())
+  ticketId  BigInt    @unique // MetaTrader unique execution ticket
+  symbol    String    // e.g. "EURUSD", "XAUUSD"
+  type      TradeType
+  lots      Float
+  openPrice Float
+  closePrice Float
+  stopLoss  Float?
+  takeProfit Float?
+
+  // Keep these separate and explicit so P&L math can't silently double-count.
+  // profit = gross P&L from price movement only (excludes commission/swap).
+  // netProfit = profit - commission - swap, i.e. what actually hit the account.
+  profit     Float
+  commission Float @default(0.0)
+  swap       Float  @default(0.0)
+  netProfit  Float  // stored explicitly rather than computed on every read
+
+  openTime  DateTime
+  closeTime DateTime
+  notes     String?
+  rating    Int?     // execution discipline rating (1-5)
+
+  tradingAccountId String
+  account          TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  tags      TagOnTrade[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([tradingAccountId, openTime])
+  @@index([symbol])
+  @@index([closeTime])
+}
+
+model Tag {
+  id     String       @id @default(uuid())
+  name   String       @unique // e.g. "Breakout", "FOMC", "FOMO Entry"
+  trades TagOnTrade[]
+}
+
+model TagOnTrade {
+  tradeId String
+  trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tagId   String
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([tradeId, tagId])
+}
