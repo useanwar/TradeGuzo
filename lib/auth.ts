@@ -1,12 +1,23 @@
 import crypto from "crypto";
-import { SignJWT, jwtVerify } from "jose";
 
+// This file uses Node's built-in `crypto` module, which only works in
+// the Node runtime — NOT in Next.js's Edge runtime (middleware.ts).
+// Only import this from API routes (app/api/**/route.ts), never from
+// middleware.ts. Session/JWT logic that middleware needs lives in
+// lib/session.ts instead, which is Edge-safe.
+
+/**
+ * Constant-time string comparison. Never use `===`/`!==` on secrets —
+ * plain comparison short-circuits on the first mismatched byte, which
+ * leaks timing information an attacker can use to guess the secret
+ * one character at a time.
+ */
 export function timingSafeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
 
   // Buffers must be equal length for timingSafeEqual to run at all,
-  // so pad/compare a hash instead of the raw (variable-length) input.
+  // so compare a fixed-length hash instead of the raw (variable-length) input.
   const hashA = crypto.createHash("sha256").update(bufA).digest();
   const hashB = crypto.createHash("sha256").update(bufB).digest();
 
@@ -25,39 +36,11 @@ export function checkDashboardPassword(incoming: string): boolean {
   return timingSafeEqual(incoming, password);
 }
 
-const JWT_COOKIE_NAME = "session";
-const JWT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
-
-function getJwtSecretKey(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    throw new Error(
-      "JWT_SECRET is missing or too short. Set a long random string in .env — do not reuse the sample value."
-    );
-  }
-  return new TextEncoder().encode(secret);
-}
-
-export async function createSessionToken(): Promise<string> {
-  return await new SignJWT({ role: "owner" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${JWT_MAX_AGE_SECONDS}s`)
-    .sign(getJwtSecretKey());
-}
-
-export async function verifySessionToken(token: string): Promise<boolean> {
-  try {
-    await jwtVerify(token, getJwtSecretKey());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export { JWT_COOKIE_NAME, JWT_MAX_AGE_SECONDS };
-
-
+/**
+ * Minimal in-memory rate limiter — fine for a single-user self-hosted
+ * instance behind a login form. Resets on process restart, which is
+ * acceptable here since the threat model is brute force, not persistence.
+ */
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 export function isRateLimited(

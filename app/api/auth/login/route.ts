@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkDashboardPassword, isRateLimited } from "@/lib/auth";
 import {
-  checkDashboardPassword,
   createSessionToken,
-  isRateLimited,
   JWT_COOKIE_NAME,
   JWT_MAX_AGE_SECONDS,
-} from "@/lib/auth";
+} from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";

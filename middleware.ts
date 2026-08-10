@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, JWT_COOKIE_NAME } from "@/lib/auth";
+import { verifySessionToken, JWT_COOKIE_NAME } from "@/lib/session";
+
 
 // Routes that must stay reachable without a session cookie:
 // - /login itself (or you'd never be able to log in)
