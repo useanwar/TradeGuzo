@@ -2,8 +2,9 @@
 // No User model, no per-user scoping — one deployment = one trader.
 // Auth is handled entirely via env vars (see lib/auth.ts), not DB rows.
 
-datasource db {
+ datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
