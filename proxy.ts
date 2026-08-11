@@ -5,7 +5,7 @@ import { verifySessionToken, JWT_COOKIE_NAME } from "@/lib/session";
 // Routes that must stay reachable without a session cookie:
 // - /login itself (or you'd never be able to log in)
 // - the EA webhook (authenticated separately via EA_SECRET_KEY, not cookies)
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks/trade", "/api/webhooks/ping"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/webhooks/trade"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
