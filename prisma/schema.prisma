@@ -18,7 +18,7 @@ enum TradeType {
 
 model TradingAccount {
   id             String   @id @default(uuid())
-  accountNumber  Int
+  accountNumber  BigInt
   brokerName     String
   currency       String   @default("USD")
   initialBalance Float    @default(10000.0)
