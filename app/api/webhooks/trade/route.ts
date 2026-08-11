@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
   // Find-or-create the account without any userId — single-user instance.
   const account = await prisma.tradingAccount.upsert({
     where: {
-      accountNumber_brokerName: { accountNumber, brokerName },
+      accountNumber_brokerName: { accountNumber: BigInt(accountNumber), brokerName },
     },
     update: {},
-    create: { accountNumber, brokerName },
+    create: { accountNumber: BigInt(accountNumber), brokerName },
   });
 
   const netProfit = profit - commission - swap;
