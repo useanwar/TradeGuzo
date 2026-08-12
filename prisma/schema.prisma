@@ -2,7 +2,7 @@
 // No User model, no per-user scoping — one deployment = one trader.
 // Auth is handled entirely via env vars (see lib/auth.ts), not DB rows.
 
- datasource db {
+datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
@@ -14,6 +14,16 @@ generator client {
 enum TradeType {
   BUY
   SELL
+}
+
+// Distinguishes "why I entered" (setups) from "what went wrong"
+// (mistakes) and "how I felt" (emotions), so reports like "performance
+// by strategy" and "which mistakes cost me money" can query separately
+// instead of lumping every tag together.
+enum TagCategory {
+  SETUP
+  MISTAKE
+  EMOTION
 }
 
 model TradingAccount {
@@ -54,6 +64,10 @@ model Trade {
   notes     String?
   rating    Int?     // execution discipline rating (1-5)
 
+  // "Did I follow my trading plan on this trade?" — null means not yet
+  // reviewed, distinct from false (reviewed and answer was "no").
+  followedPlan Boolean?
+
   tradingAccountId String
   account          TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
@@ -67,9 +81,14 @@ model Trade {
 }
 
 model Tag {
-  id     String       @id @default(uuid())
-  name   String       @unique // e.g. "Breakout", "FOMC", "FOMO Entry"
-  trades TagOnTrade[]
+  id       String      @id @default(uuid())
+  name     String      // e.g. "Breakout", "FOMO Entry"
+  category TagCategory
+  trades   TagOnTrade[]
+
+  // Same tag name can exist in different categories without colliding
+  // (unlikely in practice, but avoids a subtle uniqueness bug)
+  @@unique([name, category])
 }
 
 model TagOnTrade {
