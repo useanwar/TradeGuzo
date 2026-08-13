@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  /* Background layers — deep charcoal-navy, not pure black */
-  --color-bg-base: #14171c;
-  --color-bg-surface: #1c2027;
-  --color-bg-elevated: #232833;
-  --color-border: #2a2f38;
+  /* Background — soft cream, not stark white */
+  --color-bg-base: #f3f1ec;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #faf9f6;
+  --color-border: #e5e2db;
 
-  /* Text */
-  --color-text-primary: #e8eaed;
-  --color-text-muted: #8b92a0;
+  /* Text — warm near-black, not pure black */
+  --color-text-primary: #1f2420;
+  --color-text-muted: #7a8079;
 
-  /* P&L — muted, not arcade-saturated red/green */
-  --color-profit: #4f9b7c;
-  --color-profit-muted: #3a7259;
-  --color-loss: #c4695a;
-  --color-loss-muted: #92483d;
+  /* Sage green: doubles as brand chrome (buttons, active nav) AND
+     profit signal. Kept deliberately restrained on the calendar
+     specifically, where color is the ONLY signal (no label, no
+     shape) — everywhere else, context (shape/label/position)
+     disambiguates "brand" from "you made money" just fine. */
+  --color-profit: #3f7857;
+  --color-profit-muted: #e8f0ea;
+  --color-loss: #b5493b;
+  --color-loss-muted: #f5e7e4;
 
-  /* Single accent, used sparingly */
-  --color-accent: #e8b94a;
+  --color-accent: #3f7857;
+  --color-accent-dark: #2b5940;
 
-  
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
