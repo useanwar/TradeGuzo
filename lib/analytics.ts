@@ -130,8 +130,12 @@ export type RecentTrade = {
   closeTime: Date;
 };
 
-export async function getRecentTrades(limit = 20): Promise<RecentTrade[]> {
+export async function getRecentTrades(
+  limit = 20,
+  tradingAccountId?: string
+): Promise<RecentTrade[]> {
   const trades = await prisma.trade.findMany({
+    where: tradingAccountId ? { tradingAccountId } : undefined,
     orderBy: { closeTime: "desc" },
     take: limit,
     select: {
@@ -168,4 +172,69 @@ export async function getEquityCurve(
     running += t.netProfit;
     return { date: t.closeTime.toISOString().slice(0, 10), cumulativeNetPnl: running };
   });
+}
+
+export type TradingAccountSummary = {
+  id: string;
+  accountNumber: string; // stringified BigInt — see note below
+  brokerName: string;
+  lastTradeAt: Date | null;
+};
+
+export async function getTradingAccounts(): Promise<TradingAccountSummary[]> {
+  const accounts = await prisma.tradingAccount.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      accountNumber: true,
+      brokerName: true,
+      trades: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+
+  // accountNumber is a BigInt at the DB layer — Next.js can't serialize
+  // BigInt across the server/client boundary (it'll throw at runtime if
+  // you try), so convert to a plain string here, at the one place this
+  // data leaves the server-only analytics layer.
+  return accounts.map((a) => ({
+    id: a.id,
+    accountNumber: a.accountNumber.toString(),
+    brokerName: a.brokerName,
+    lastTradeAt: a.trades[0]?.createdAt ?? null,
+  }));
+}
+
+export type AccountOption = {
+  id: string;
+  accountNumber: string; // BigInt converted to string — BigInt can't
+                          // cross the server/client component boundary
+  brokerName: string;
+};
+
+export async function getAllAccounts(): Promise<AccountOption[]> {
+  const accounts = await prisma.tradingAccount.findMany({
+    select: { id: true, accountNumber: true, brokerName: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return accounts.map((a) => ({
+    id: a.id,
+    accountNumber: a.accountNumber.toString(),
+    brokerName: a.brokerName,
+  }));
+}
+
+// Global signal (not filtered by account) — this is really answering
+// "is my ingestion pipeline still alive at all," which matters
+// regardless of which account you're currently viewing.
+export async function getLastSyncedAt(): Promise<Date | null> {
+  const latest = await prisma.trade.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  return latest?.createdAt ?? null;
 }
