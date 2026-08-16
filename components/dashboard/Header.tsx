@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import AccountSelector from "./Accountselector";
 import type { AccountOption } from "@/lib/analytics";
 
@@ -44,17 +45,13 @@ export default function Header({
 
       <div className="flex items-center gap-2">
         <AccountSelector accounts={accounts} />
-        {/* Manual trade entry isn't built yet — reserved spot, kept
-            visibly non-functional (reduced opacity, no click handler)
-            rather than linking to a page that doesn't exist. */}
-        <button
-          disabled
-          title="Coming soon"
-          className="flex items-center gap-1 rounded-full bg-accent-dark px-3 py-1.5 text-sm font-medium text-white opacity-50"
+        <Link
+          href="/trades/new"
+          className="flex items-center gap-1 rounded-full bg-accent-dark px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           <Plus size={16} />
           Log Trade
-        </button>
+        </Link>
       </div>
     </div>
   );

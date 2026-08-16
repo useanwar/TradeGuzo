@@ -3,8 +3,9 @@
 // Auth is handled entirely via env vars (see lib/auth.ts), not DB rows.
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pooled — used by the running app
+  directUrl = env("DIRECT_URL")     // unpooled — used only for migrations
 }
 
 generator client {
@@ -28,7 +29,7 @@ enum TagCategory {
 
 model TradingAccount {
   id             String   @id @default(uuid())
-  accountNumber  BigInt
+  accountNumber  BigInt   // MT5 account numbers can exceed Int's 2.1B max
   brokerName     String
   currency       String   @default("USD")
   initialBalance Float    @default(10000.0)
@@ -67,6 +68,13 @@ model Trade {
   // "Did I follow my trading plan on this trade?" — null means not yet
   // reviewed, distinct from false (reviewed and answer was "no").
   followedPlan Boolean?
+
+  // true for trades entered by hand via the dashboard (paper trades,
+  // or accounts not connected through the EA at all). These don't have
+  // a real MT5 ticket, so ticketId is synthetically generated on
+  // creation — isManual is what actually distinguishes them, not the
+  // ticketId's value.
+  isManual Boolean @default(false)
 
   tradingAccountId String
   account          TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
