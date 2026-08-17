@@ -45,12 +45,19 @@ export default function Header({
 
       <div className="flex items-center gap-2">
         <AccountSelector accounts={accounts} />
+        {/* Manual trade entry now exists — see app/(dashboard)/trades/new */}
         <Link
           href="/trades/new"
           className="flex items-center gap-1 rounded-full bg-accent-dark px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           <Plus size={16} />
           Log Trade
+        </Link>
+        <Link
+          href="/trades/import"
+          className="flex items-center gap-1 rounded-full border border-border bg-bg-surface px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-elevated"
+        >
+          Import CSV
         </Link>
       </div>
     </div>
