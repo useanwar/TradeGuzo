@@ -7,6 +7,33 @@ import { prisma } from "@/lib/prisma";
 // If this ever becomes a bottleneck, the day-bucketing in getCalendarData
 // is the first thing worth moving to a raw SQL query.
 
+export type DateRangeKey = "week" | "month" | "year" | "all";
+
+// Computed server-side so "today" is consistent regardless of the
+// viewer's device clock/timezone quirks — the server's notion of
+// "now" is the single source of truth here.
+export function getDateRangeBounds(range: DateRangeKey): { from?: Date; to?: Date } {
+  const now = new Date();
+
+  if (range === "all") return {};
+
+  if (range === "week") {
+    // Monday as the start of the week, matching the calendar's
+    // Monday-first layout elsewhere in the app.
+    const day = now.getUTCDay();
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday));
+    return { from: start };
+  }
+
+  if (range === "month") {
+    return { from: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) };
+  }
+
+  // "year"
+  return { from: new Date(Date.UTC(now.getUTCFullYear(), 0, 1)) };
+}
+
 export type KpiSummary = {
   netPnl: number;
   winRate: number; // 0–100
@@ -17,10 +44,21 @@ export type KpiSummary = {
 };
 
 export async function getKpiSummary(
-  tradingAccountId?: string
+  tradingAccountId?: string,
+  dateRange?: { from?: Date; to?: Date }
 ): Promise<KpiSummary> {
   const trades = await prisma.trade.findMany({
-    where: tradingAccountId ? { tradingAccountId } : undefined,
+    where: {
+      ...(tradingAccountId ? { tradingAccountId } : {}),
+      ...(dateRange?.from || dateRange?.to
+        ? {
+            closeTime: {
+              ...(dateRange?.from ? { gte: dateRange.from } : {}),
+              ...(dateRange?.to ? { lte: dateRange.to } : {}),
+            },
+          }
+        : {}),
+    },
     select: { netProfit: true },
   });
 
