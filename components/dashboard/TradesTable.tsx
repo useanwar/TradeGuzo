@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import type { RecentTrade } from "@/lib/analytics";
 
 function formatMoney(value: number): string {
@@ -6,6 +9,8 @@ function formatMoney(value: number): string {
 }
 
 export default function TradesTable({ trades }: { trades: RecentTrade[] }) {
+  const router = useRouter();
+
   if (trades.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-bg-surface p-8 text-center text-text-muted shadow-sm">
@@ -30,7 +35,11 @@ export default function TradesTable({ trades }: { trades: RecentTrade[] }) {
         </thead>
         <tbody>
           {trades.map((trade) => (
-            <tr key={trade.id} className="border-b border-border last:border-0 hover:bg-bg-elevated">
+            <tr
+              key={trade.id}
+              onClick={() => router.push(`/trades/${trade.id}`)}
+              className="cursor-pointer border-b border-border last:border-0 hover:bg-bg-elevated"
+            >
               <td className="px-4 py-3 font-medium text-text-primary">{trade.symbol}</td>
               <td className="px-4 py-3">
                 <span

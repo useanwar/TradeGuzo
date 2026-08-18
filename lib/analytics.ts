@@ -276,3 +276,78 @@ export async function getLastSyncedAt(): Promise<Date | null> {
   });
   return latest?.createdAt ?? null;
 }
+
+export type TradeDetail = {
+  id: string;
+  ticketId: string; // BigInt -> string, same reasoning as accountNumber
+  symbol: string;
+  type: "BUY" | "SELL";
+  lots: number;
+  openPrice: number;
+  closePrice: number;
+  stopLoss: number | null;
+  takeProfit: number | null;
+  profit: number;
+  commission: number;
+  swap: number;
+  netProfit: number;
+  openTime: Date;
+  closeTime: Date;
+  notes: string | null;
+  rating: number | null;
+  followedPlan: boolean | null;
+  isManual: boolean;
+  account: { id: string; brokerName: string; accountNumber: string };
+  tags: { id: string; name: string; category: "SETUP" | "MISTAKE" | "EMOTION" }[];
+};
+
+export async function getTradeById(id: string): Promise<TradeDetail | null> {
+  const trade = await prisma.trade.findUnique({
+    where: { id },
+    include: {
+      account: { select: { id: true, brokerName: true, accountNumber: true } },
+      tags: { include: { tag: true } },
+    },
+  });
+
+  if (!trade) return null;
+
+  return {
+    id: trade.id,
+    ticketId: trade.ticketId.toString(),
+    symbol: trade.symbol,
+    type: trade.type,
+    lots: trade.lots,
+    openPrice: trade.openPrice,
+    closePrice: trade.closePrice,
+    stopLoss: trade.stopLoss,
+    takeProfit: trade.takeProfit,
+    profit: trade.profit,
+    commission: trade.commission,
+    swap: trade.swap,
+    netProfit: trade.netProfit,
+    openTime: trade.openTime,
+    closeTime: trade.closeTime,
+    notes: trade.notes,
+    rating: trade.rating,
+    followedPlan: trade.followedPlan,
+    isManual: trade.isManual,
+    account: {
+      id: trade.account.id,
+      brokerName: trade.account.brokerName,
+      accountNumber: trade.account.accountNumber.toString(),
+    },
+    tags: trade.tags.map((t) => ({
+      id: t.tag.id,
+      name: t.tag.name,
+      category: t.tag.category,
+    })),
+  };
+}
+
+export type TagOption = { id: string; name: string; category: "SETUP" | "MISTAKE" | "EMOTION" };
+
+export async function getAllTags(): Promise<TagOption[]> {
+  const tags = await prisma.tag.findMany({ orderBy: { name: "asc" } });
+  return tags;
+}
