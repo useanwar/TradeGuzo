@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import AccountSelector from "./Accountselector";
 import type { AccountOption } from "@/lib/analytics";
@@ -27,7 +27,7 @@ export default function Header({
   lastSyncedAt: Date | null;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         {/* Logo placeholder — swap this div for an <Image> once the
             real logo exists. Sized to match the text height so the
@@ -45,20 +45,33 @@ export default function Header({
 
       <div className="flex items-center gap-2">
         <AccountSelector accounts={accounts} />
-        {/* Manual trade entry now exists — see app/(dashboard)/trades/new */}
-        <Link
-          href="/trades/new"
-          className="flex items-center gap-1 rounded-full bg-accent-dark px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Log Trade
-        </Link>
-        <Link
-          href="/trades/import"
-          className="flex items-center gap-1 rounded-full border border-border bg-bg-surface px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-elevated"
-        >
-          Import CSV
-        </Link>
+
+        {/* ml-auto pins these two flush to the row's right edge,
+            regardless of how wide AccountSelector ends up being —
+            keeps them from just floating wherever there's leftover
+            space when the header wraps on mobile. */}
+        <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          {/* Manual trade entry now exists — see app/(dashboard)/trades/new.
+              Icon-only circle on mobile (label hidden), full pill with
+              label at sm and up — matches the sidebar's own responsive
+              pattern rather than letting text wrap awkwardly. */}
+          <Link
+            href="/trades/new"
+            title="Log Trade"
+            className="flex h-9 w-9 items-center justify-center gap-1 rounded-full bg-accent-dark text-white transition-opacity hover:opacity-90 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 sm:text-sm sm:font-medium"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Log Trade</span>
+          </Link>
+          <Link
+            href="/trades/import"
+            title="Import CSV"
+            className="flex h-9 w-9 items-center justify-center gap-1 rounded-full border border-border bg-bg-surface text-text-primary transition-colors hover:bg-bg-elevated sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 sm:text-sm sm:font-medium"
+          >
+            <Upload size={16} />
+            <span className="hidden sm:inline">Import CSV</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
