@@ -81,18 +81,22 @@ export default function Calendar({
           const intensity = hasTrades ? Math.min(1, Math.abs(dayData!.netPnl) / maxAbsPnl) : 0;
           const isProfit = hasTrades && dayData!.netPnl >= 0;
 
-          return (
-            <div
-              key={cell.date}
-              className="flex min-h-14 flex-col rounded-lg border border-border p-1 sm:min-h-20 sm:rounded-xl sm:p-2"
-              style={{
-                backgroundColor: hasTrades
-                  ? isProfit
-                    ? `color-mix(in srgb, var(--color-profit) ${15 + intensity * 55}%, var(--color-bg-surface))`
-                    : `color-mix(in srgb, var(--color-loss) ${15 + intensity * 55}%, var(--color-bg-surface))`
-                  : "var(--color-bg-elevated)",
-              }}
-            >
+          // Only days with trades are clickable — nothing useful to
+          // drill into on an empty day. Link and div share the same
+          // className/style so the visual doesn't shift either way.
+          const cellClassName =
+            "flex min-h-14 flex-col rounded-lg border border-border p-1 sm:min-h-20 sm:rounded-xl sm:p-2" +
+            (hasTrades ? " cursor-pointer transition-transform hover:scale-[1.03]" : "");
+          const cellStyle = {
+            backgroundColor: hasTrades
+              ? isProfit
+                ? `color-mix(in srgb, var(--color-profit) ${15 + intensity * 55}%, var(--color-bg-surface))`
+                : `color-mix(in srgb, var(--color-loss) ${15 + intensity * 55}%, var(--color-bg-surface))`
+              : "var(--color-bg-elevated)",
+          };
+
+          const cellContent = (
+            <>
               <span className="text-[10px] text-text-muted sm:text-xs">{cell.dayNum}</span>
               {hasTrades && (
                 <>
@@ -125,6 +129,16 @@ export default function Calendar({
                   )}
                 </>
               )}
+            </>
+          );
+
+          return hasTrades ? (
+            <Link key={cell.date} href={`/trades/day/${cell.date}`} className={cellClassName} style={cellStyle}>
+              {cellContent}
+            </Link>
+          ) : (
+            <div key={cell.date} className={cellClassName} style={cellStyle}>
+              {cellContent}
             </div>
           );
         })}

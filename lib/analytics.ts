@@ -246,6 +246,34 @@ export async function getTradingAccounts(): Promise<TradingAccountSummary[]> {
   }));
 }
 
+export async function getTradesForDay(
+  date: string, // "YYYY-MM-DD"
+  tradingAccountId?: string
+): Promise<RecentTrade[]> {
+  const startOfDay = new Date(`${date}T00:00:00.000Z`);
+  const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+  const trades = await prisma.trade.findMany({
+    where: {
+      ...(tradingAccountId ? { tradingAccountId } : {}),
+      closeTime: { gte: startOfDay, lt: startOfNextDay },
+    },
+    orderBy: { closeTime: "asc" },
+    select: {
+      id: true,
+      symbol: true,
+      type: true,
+      lots: true,
+      openPrice: true,
+      closePrice: true,
+      netProfit: true,
+      closeTime: true,
+    },
+  });
+
+  return trades;
+}
+
 export type AccountOption = {
   id: string;
   accountNumber: string; // BigInt converted to string — BigInt can't
@@ -350,4 +378,42 @@ export type TagOption = { id: string; name: string; category: "SETUP" | "MISTAKE
 export async function getAllTags(): Promise<TagOption[]> {
   const tags = await prisma.tag.findMany({ orderBy: { name: "asc" } });
   return tags;
+}
+
+export type TradeReviewPrefill = {
+  rating: number | null;
+  followedPlan: boolean | null;
+  notes: string | null;
+  tags: TagOption[];
+};
+
+// Used to pre-fill the "log a trade" form with the previous trade's
+// rating/followedPlan/notes/tags — deliberately does NOT touch
+// trade-specific fields like symbol/prices/times/profit, since those
+// would almost never be correct to duplicate. This only covers the
+// "review" metadata that's genuinely likely to repeat across similar
+// trades entered back-to-back.
+export async function getMostRecentTradeReview(): Promise<TradeReviewPrefill | null> {
+  const trade = await prisma.trade.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: {
+      rating: true,
+      followedPlan: true,
+      notes: true,
+      tags: { include: { tag: true } },
+    },
+  });
+
+  if (!trade) return null;
+
+  return {
+    rating: trade.rating,
+    followedPlan: trade.followedPlan,
+    notes: trade.notes,
+    tags: trade.tags.map((t) => ({
+      id: t.tag.id,
+      name: t.tag.name,
+      category: t.tag.category,
+    })),
+  };
 }
