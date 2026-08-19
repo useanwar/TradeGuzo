@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Trade" ADD COLUMN     "mae" DOUBLE PRECISION,
+ADD COLUMN     "mfe" DOUBLE PRECISION;

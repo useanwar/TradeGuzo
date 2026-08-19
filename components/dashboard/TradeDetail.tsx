@@ -140,6 +140,22 @@ export default function TradeDetail({
           <div><span className="block text-xs text-text-muted">Commission</span>{formatMoney(trade.commission)}</div>
           <div><span className="block text-xs text-text-muted">Swap</span>{formatMoney(trade.swap)}</div>
           <div><span className="block text-xs text-text-muted">Gross Profit</span>{formatMoney(trade.profit)}</div>
+          <div>
+            <span className="block text-xs text-text-muted">Max Adverse (MAE)</span>
+            {trade.mae !== null && trade.mae !== undefined && typeof trade.mae === "number" && isFinite(trade.mae) ? (
+              <span className="text-loss">{formatMoney(trade.mae)}</span>
+            ) : (
+              <span className="text-text-muted">Not tracked</span>
+            )}
+          </div>
+          <div>
+            <span className="block text-xs text-text-muted">Max Favorable (MFE)</span>
+            {trade.mfe !== null && trade.mfe !== undefined && typeof trade.mfe === "number" && isFinite(trade.mfe) ? (
+              <span className="text-profit">{formatMoney(trade.mfe)}</span>
+            ) : (
+              <span className="text-text-muted">Not tracked</span>
+            )}
+          </div>
           <div><span className="block text-xs text-text-muted">Opened</span>{trade.openTime.toISOString().slice(0, 16).replace("T", " ")}</div>
           <div><span className="block text-xs text-text-muted">Closed</span>{trade.closeTime.toISOString().slice(0, 16).replace("T", " ")}</div>
         </div>

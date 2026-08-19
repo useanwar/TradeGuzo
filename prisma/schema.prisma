@@ -76,6 +76,16 @@ model Trade {
   // ticketId's value.
   isManual Boolean @default(false)
 
+  // Maximum Adverse/Favorable Excursion, in account currency — the
+  // worst (mae) and best (mfe) floating profit the position reached
+  // while it was open, before closing. Only populated for trades the
+  // EA watched live tick-by-tick; null (not 0) for anything backfilled
+  // via catch-up sync, CSV import, or manual entry, since there's no
+  // way to reconstruct this after the fact — MT5's history only has
+  // the open and close price, not the path between them.
+  mae Float?
+  mfe Float?
+
   tradingAccountId String
   account          TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 

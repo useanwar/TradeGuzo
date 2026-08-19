@@ -10,6 +10,20 @@ input string ServerUrl   = "http://127.0.0.1:3000/api/webhooks/trade"; // change
 input string LastSyncUrl = "http://127.0.0.1:3000/api/webhooks/last-sync"; // change to your deployed URL later
 input string EaSecretKey = "change_me_to_match_EA_SECRET_KEY_in_env";  // must match EA_SECRET_KEY in your .env
 
+// MAE/MFE tracking — MT5's trade history only stores the open and
+// close price, not what happened in between, so the only way to know
+// how far a trade moved for/against you mid-trade is to watch it live,
+// tick by tick, while it's open. These parallel arrays track each
+// currently-open position's running worst (MAE) and best (MFE)
+// floating profit, keyed by position ticket. Positions that were
+// already open before this EA started tracking (EA just launched
+// mid-trade, or a trade backfilled via catch-up sync) never get an
+// entry here — for those, MAE/MFE genuinely can't be known and are
+// simply omitted rather than guessed at.
+ulong  g_posTickets[];
+double g_posMinProfit[];
+double g_posMaxProfit[];
+
 //+------------------------------------------------------------------+
 //| On startup, ask the server what the last synced trade for this   |
 //| account was, then backfill anything closed since then. Covers    |
@@ -20,6 +34,95 @@ int OnInit()
 {
    CatchUpSync();
    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Fires on every price update. Only job here is refreshing the      |
+//| MAE/MFE tracking arrays — actual trade-sending stays entirely in  |
+//| OnTradeTransaction, so this stays cheap and doesn't duplicate      |
+//| any sending logic.                                                 |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   UpdateMaeMfeTracking();
+}
+
+//+------------------------------------------------------------------+
+//| Find this position's index in the tracking arrays, or -1 if it's  |
+//| not being tracked yet (brand new position, or one that was        |
+//| already open before this EA started).                             |
+//+------------------------------------------------------------------+
+int FindTrackedIndex(ulong positionTicket)
+{
+   for(int i = 0; i < ArraySize(g_posTickets); i++)
+   {
+      if(g_posTickets[i] == positionTicket)
+         return i;
+   }
+   return -1;
+}
+
+//+------------------------------------------------------------------+
+//| Loop every currently open position, update its running best/worst |
+//| floating profit. Called every tick — cheap since it's just array  |
+//| lookups and comparisons, no network calls.                        |
+//+------------------------------------------------------------------+
+void UpdateMaeMfeTracking()
+{
+   int total = PositionsTotal();
+
+   for(int i = 0; i < total; i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(!PositionSelectByTicket(ticket))
+         continue;
+
+      double floatingProfit = PositionGetDouble(POSITION_PROFIT);
+      int idx = FindTrackedIndex(ticket);
+
+      if(idx == -1)
+      {
+         // First tick we've seen this position — start tracking it,
+         // both min and max starting at its current floating profit.
+         int newSize = ArraySize(g_posTickets) + 1;
+         ArrayResize(g_posTickets, newSize);
+         ArrayResize(g_posMinProfit, newSize);
+         ArrayResize(g_posMaxProfit, newSize);
+
+         g_posTickets[newSize - 1] = ticket;
+         g_posMinProfit[newSize - 1] = floatingProfit;
+         g_posMaxProfit[newSize - 1] = floatingProfit;
+      }
+      else
+      {
+         if(floatingProfit < g_posMinProfit[idx]) g_posMinProfit[idx] = floatingProfit;
+         if(floatingProfit > g_posMaxProfit[idx]) g_posMaxProfit[idx] = floatingProfit;
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Remove a position from the tracking arrays once it's closed and   |
+//| sent — keeps the arrays from growing forever over the life of the |
+//| terminal session.                                                  |
+//+------------------------------------------------------------------+
+void RemoveTrackedPosition(ulong positionTicket)
+{
+   int idx = FindTrackedIndex(positionTicket);
+   if(idx == -1) return;
+
+   int lastIdx = ArraySize(g_posTickets) - 1;
+
+   // Swap-and-pop: move the last element into this slot, then shrink
+   // by one. Order doesn't matter for this array, so this is simpler
+   // and cheaper than shifting every element down by one.
+   g_posTickets[idx] = g_posTickets[lastIdx];
+   g_posMinProfit[idx] = g_posMinProfit[lastIdx];
+   g_posMaxProfit[idx] = g_posMaxProfit[lastIdx];
+
+   ArrayResize(g_posTickets, lastIdx);
+   ArrayResize(g_posMinProfit, lastIdx);
+   ArrayResize(g_posMaxProfit, lastIdx);
 }
 
 //+------------------------------------------------------------------+
@@ -103,11 +206,28 @@ void SendClosedTrade(ulong closeDealTicket)
    long accountNumber = AccountInfoInteger(ACCOUNT_LOGIN);
    string brokerName  = AccountInfoString(ACCOUNT_COMPANY);
 
+   // Look up this position's tracked MAE/MFE, if we have it. Only
+   // positions that were open WHILE this EA was running and ticking
+   // get tracked — a trade backfilled via catch-up sync, or one that
+   // was already open before this EA started, was never watched live,
+   // so there's genuinely no MAE/MFE data for it. hasMaeMfe tells
+   // SendTradeToApi whether to include those fields at all, rather
+   // than sending a fake 0 that would misleadingly look like real data.
+   int trackedIdx = FindTrackedIndex(positionId);
+   bool hasMaeMfe = trackedIdx != -1;
+   double mae = hasMaeMfe ? g_posMinProfit[trackedIdx] : 0;
+   double mfe = hasMaeMfe ? g_posMaxProfit[trackedIdx] : 0;
+
    SendTradeToApi(
       positionId, accountNumber, brokerName, symbol, tradeType,
       lots, openPrice, closePrice, profit, commission, swap,
-      openTime, closeTime
+      openTime, closeTime, hasMaeMfe, mae, mfe
    );
+
+   // Done with this position — stop tracking it so the arrays don't
+   // grow forever over a long-running terminal session.
+   if(hasMaeMfe)
+      RemoveTrackedPosition(positionId);
 }
 
 //+------------------------------------------------------------------+
@@ -131,19 +251,31 @@ void SendTradeToApi(long ticketId, long accountNumber, string brokerName,
                      string symbol, string tradeType, double lots,
                      double openPrice, double closePrice, double profit,
                      double commission, double swap,
-                     datetime openTime, datetime closeTime)
+                     datetime openTime, datetime closeTime,
+                     bool hasMaeMfe, double mae, double mfe)
 {
+   string maeMfeJson = "";
+   if(hasMaeMfe)
+   {
+      // Only appended when we actually tracked this position live —
+      // omitting the fields entirely (rather than sending 0) means
+      // the backend can tell "genuinely no data" apart from "broke
+      // even," which a 0 would hide.
+      maeMfeJson = StringFormat(",\"mae\":%.2f,\"mfe\":%.2f", mae, mfe);
+   }
+
    string json = StringFormat(
       "{\"ticketId\":%I64d,\"accountNumber\":%I64d,\"brokerName\":\"%s\"," \
       "\"symbol\":\"%s\",\"type\":\"%s\",\"lots\":%.2f," \
       "\"openPrice\":%.5f,\"closePrice\":%.5f," \
       "\"profit\":%.2f,\"commission\":%.2f,\"swap\":%.2f," \
-      "\"openTime\":\"%s\",\"closeTime\":\"%s\"}",
+      "\"openTime\":\"%s\",\"closeTime\":\"%s\"%s}",
       ticketId, accountNumber, brokerName,
       symbol, tradeType, lots,
       openPrice, closePrice,
       profit, commission, swap,
-      ToIso8601(openTime), ToIso8601(closeTime)
+      ToIso8601(openTime), ToIso8601(closeTime),
+      maeMfeJson
    );
 
    string headers = "Content-Type: application/json\r\n" +

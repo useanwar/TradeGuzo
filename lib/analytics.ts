@@ -325,6 +325,8 @@ export type TradeDetail = {
   rating: number | null;
   followedPlan: boolean | null;
   isManual: boolean;
+  mae: number | null;
+  mfe: number | null;
   account: { id: string; brokerName: string; accountNumber: string };
   tags: { id: string; name: string; category: "SETUP" | "MISTAKE" | "EMOTION" }[];
 };
@@ -360,6 +362,8 @@ export async function getTradeById(id: string): Promise<TradeDetail | null> {
     rating: trade.rating,
     followedPlan: trade.followedPlan,
     isManual: trade.isManual,
+    mae: trade.mae,
+    mfe: trade.mfe,
     account: {
       id: trade.account.id,
       brokerName: trade.account.brokerName,

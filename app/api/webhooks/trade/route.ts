@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
     swap = 0,
     openTime,
     closeTime,
+    mae, // optional — only present when the EA tracked this position live
+    mfe,
   } = body;
 
   if (!ticketId || !accountNumber || !brokerName || !symbol || !type) {
@@ -62,6 +64,8 @@ export async function POST(request: NextRequest) {
       swap,
       netProfit,
       closeTime: closeTime ? new Date(closeTime) : undefined,
+      ...(mae !== undefined ? { mae } : {}),
+      ...(mfe !== undefined ? { mfe } : {}),
     },
     create: {
       ticketId: BigInt(ticketId),
@@ -79,6 +83,8 @@ export async function POST(request: NextRequest) {
       openTime: new Date(openTime),
       closeTime: new Date(closeTime),
       tradingAccountId: account.id,
+      mae,
+      mfe,
     },
   });
 
