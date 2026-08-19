@@ -380,40 +380,119 @@ export async function getAllTags(): Promise<TagOption[]> {
   return tags;
 }
 
-export type TradeReviewPrefill = {
-  rating: number | null;
-  followedPlan: boolean | null;
-  notes: string | null;
-  tags: TagOption[];
+export type DayOfWeekStat = {
+  day: string; // "Mon".."Sun"
+  winRate: number;
+  netPnl: number;
+  tradeCount: number;
 };
 
-// Used to pre-fill the "log a trade" form with the previous trade's
-// rating/followedPlan/notes/tags — deliberately does NOT touch
-// trade-specific fields like symbol/prices/times/profit, since those
-// would almost never be correct to duplicate. This only covers the
-// "review" metadata that's genuinely likely to repeat across similar
-// trades entered back-to-back.
-export async function getMostRecentTradeReview(): Promise<TradeReviewPrefill | null> {
-  const trade = await prisma.trade.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: {
-      rating: true,
-      followedPlan: true,
-      notes: true,
-      tags: { include: { tag: true } },
-    },
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export async function getWinRateByDayOfWeek(
+  tradingAccountId?: string
+): Promise<DayOfWeekStat[]> {
+  const trades = await prisma.trade.findMany({
+    where: tradingAccountId ? { tradingAccountId } : undefined,
+    select: { closeTime: true, netProfit: true },
   });
 
-  if (!trade) return null;
+  // Bucket in JS rather than SQL — Prisma can't extract day-of-week
+  // from a DateTime directly, same tradeoff as the calendar's day
+  // bucketing. Fine at personal-journal scale.
+  const buckets = new Map<number, { wins: number; total: number; netPnl: number }>();
+  for (let i = 0; i < 7; i++) buckets.set(i, { wins: 0, total: 0, netPnl: 0 });
 
-  return {
-    rating: trade.rating,
-    followedPlan: trade.followedPlan,
-    notes: trade.notes,
-    tags: trade.tags.map((t) => ({
-      id: t.tag.id,
-      name: t.tag.name,
-      category: t.tag.category,
-    })),
-  };
+  for (const trade of trades) {
+    const day = trade.closeTime.getUTCDay();
+    const b = buckets.get(day)!;
+    b.total += 1;
+    b.netPnl += trade.netProfit;
+    if (trade.netProfit > 0) b.wins += 1;
+  }
+
+  // Reorder Mon-first to match the calendar's convention elsewhere.
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  return order.map((dayIndex) => {
+    const b = buckets.get(dayIndex)!;
+    return {
+      day: DAY_LABELS[dayIndex],
+      winRate: b.total > 0 ? (b.wins / b.total) * 100 : 0,
+      netPnl: b.netPnl,
+      tradeCount: b.total,
+    };
+  });
+}
+
+export type HourStat = {
+  hour: number; // 0–23
+  winRate: number;
+  netPnl: number;
+  tradeCount: number;
+};
+
+export async function getWinRateByHour(tradingAccountId?: string): Promise<HourStat[]> {
+  const trades = await prisma.trade.findMany({
+    where: tradingAccountId ? { tradingAccountId } : undefined,
+    select: { openTime: true, netProfit: true },
+  });
+
+  const buckets = new Map<number, { wins: number; total: number; netPnl: number }>();
+  for (let i = 0; i < 24; i++) buckets.set(i, { wins: 0, total: 0, netPnl: 0 });
+
+  for (const trade of trades) {
+    const hour = trade.openTime.getUTCHours();
+    const b = buckets.get(hour)!;
+    b.total += 1;
+    b.netPnl += trade.netProfit;
+    if (trade.netProfit > 0) b.wins += 1;
+  }
+
+  return Array.from(buckets.entries()).map(([hour, b]) => ({
+    hour,
+    winRate: b.total > 0 ? (b.wins / b.total) * 100 : 0,
+    netPnl: b.netPnl,
+    tradeCount: b.total,
+  }));
+}
+
+export type TagPerformance = {
+  tagName: string;
+  category: "SETUP" | "MISTAKE" | "EMOTION";
+  netPnl: number;
+  winRate: number;
+  tradeCount: number;
+};
+
+export async function getPerformanceByTag(
+  tradingAccountId?: string
+): Promise<TagPerformance[]> {
+  const tagLinks = await prisma.tagOnTrade.findMany({
+    where: tradingAccountId ? { trade: { tradingAccountId } } : undefined,
+    include: { tag: true, trade: { select: { netProfit: true } } },
+  });
+
+  const buckets = new Map<
+    string,
+    { category: "SETUP" | "MISTAKE" | "EMOTION"; wins: number; total: number; netPnl: number }
+  >();
+
+  for (const link of tagLinks) {
+    const key = link.tag.name;
+    const b = buckets.get(key) ?? { category: link.tag.category, wins: 0, total: 0, netPnl: 0 };
+    b.total += 1;
+    b.netPnl += link.trade.netProfit;
+    if (link.trade.netProfit > 0) b.wins += 1;
+    buckets.set(key, b);
+  }
+
+  return Array.from(buckets.entries())
+    .map(([tagName, b]) => ({
+      tagName,
+      category: b.category,
+      netPnl: b.netPnl,
+      winRate: b.total > 0 ? (b.wins / b.total) * 100 : 0,
+      tradeCount: b.total,
+    }))
+    .sort((a, b) => b.netPnl - a.netPnl);
 }
