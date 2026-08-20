@@ -329,6 +329,7 @@ export type TradeDetail = {
   mfe: number | null;
   account: { id: string; brokerName: string; accountNumber: string };
   tags: { id: string; name: string; category: "SETUP" | "MISTAKE" | "EMOTION" }[];
+  screenshots: { id: string; url: string; label: string | null }[];
 };
 
 export async function getTradeById(id: string): Promise<TradeDetail | null> {
@@ -337,6 +338,7 @@ export async function getTradeById(id: string): Promise<TradeDetail | null> {
     include: {
       account: { select: { id: true, brokerName: true, accountNumber: true } },
       tags: { include: { tag: true } },
+      screenshots: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -373,6 +375,11 @@ export async function getTradeById(id: string): Promise<TradeDetail | null> {
       id: t.tag.id,
       name: t.tag.name,
       category: t.tag.category,
+    })),
+    screenshots: trade.screenshots.map((s) => ({
+      id: s.id,
+      url: s.url,
+      label: s.label,
     })),
   };
 }

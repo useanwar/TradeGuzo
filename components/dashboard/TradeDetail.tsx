@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X, ImagePlus } from "lucide-react";
 import type { TradeDetail as TradeDetailType, TagOption } from "@/lib/analytics";
 
 function formatMoney(value: number): string {
@@ -31,6 +30,38 @@ export default function TradeDetail({
   const [rating, setRating] = useState(trade.rating);
   const [followedPlan, setFollowedPlan] = useState(trade.followedPlan);
   const [tags, setTags] = useState(trade.tags);
+  const [screenshots, setScreenshots] = useState(trade.screenshots);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUploadScreenshot(file: File) {
+    setUploadError(null);
+    setUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`/api/trades/${trade.id}/screenshots`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+
+    setUploading(false);
+
+    if (!res.ok) {
+      setUploadError(data.error ?? "Upload failed");
+      return;
+    }
+
+    setScreenshots((prev) => [...prev, data.screenshot]);
+  }
+
+  async function handleDeleteScreenshot(screenshotId: string) {
+    setScreenshots((prev) => prev.filter((s) => s.id !== screenshotId));
+    await fetch(`/api/trades/${trade.id}/screenshots/${screenshotId}`, { method: "DELETE" });
+  }
   const [newTagName, setNewTagName] = useState("");
   const [newTagCategory, setNewTagCategory] = useState<"SETUP" | "MISTAKE" | "EMOTION">("SETUP");
 
@@ -260,6 +291,50 @@ export default function TradeDetail({
               ))}
           </div>
         )}
+      </div>
+
+      {/* Screenshots */}
+      <div className="rounded-2xl border border-border bg-bg-surface p-5 shadow-sm">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-text-muted">
+          Screenshots
+        </h2>
+
+        {screenshots.length > 0 && (
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {screenshots.map((s) => (
+              <div key={s.id} className="group relative overflow-hidden rounded-lg border border-border">
+                <a href={s.url} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={s.url} alt={s.label ?? "Trade screenshot"} className="h-32 w-full object-cover" />
+                </a>
+                <button
+                  onClick={() => handleDeleteScreenshot(s.id)}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-bg-surface/90 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-loss"
+                  title="Remove screenshot"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleUploadScreenshot(e.target.files[0])}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-bg-elevated disabled:opacity-50"
+        >
+          <ImagePlus size={14} />
+          {uploading ? "Uploading..." : "Add Screenshot"}
+        </button>
+        {uploadError && <p className="mt-2 text-xs text-loss">{uploadError}</p>}
       </div>
 
       {/* Notes */}

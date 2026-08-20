@@ -89,13 +89,28 @@ model Trade {
   tradingAccountId String
   account          TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
-  tags      TagOnTrade[]
+  tags        TagOnTrade[]
+  screenshots TradeScreenshot[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
   @@index([tradingAccountId, openTime])
   @@index([symbol])
   @@index([closeTime])
+}
+
+// Chart screenshots attached to a trade — stored in Vercel Blob, only
+// the URL and a bit of metadata live in Postgres. A trade can have
+// several (e.g. "before" and "after" the entry), hence a separate
+// model rather than a single url column on Trade.
+model TradeScreenshot {
+  id      String  @id @default(uuid())
+  url     String
+  label   String? // e.g. "Before", "After", "Setup" — free text, not an enum
+  tradeId String
+  trade   Trade   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model Tag {
