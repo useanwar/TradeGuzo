@@ -166,6 +166,7 @@ export type RecentTrade = {
   closePrice: number;
   netProfit: number;
   closeTime: Date;
+  screenshotUrl?: string | null; // first screenshot, for grid-view thumbnails
 };
 
 export async function getRecentTrades(
@@ -506,4 +507,51 @@ export async function getPerformanceByTag(
       tradeCount: b.total,
     }))
     .sort((a, b) => b.netPnl - a.netPnl);
+}
+
+export type TradeFilters = {
+  symbol?: string;
+  tradingAccountId?: string;
+  result?: "win" | "loss"; // omitted = both
+  dateFrom?: Date;
+  dateTo?: Date;
+};
+
+export async function getFilteredTrades(filters: TradeFilters): Promise<RecentTrade[]> {
+  const trades = await prisma.trade.findMany({
+    where: {
+      ...(filters.tradingAccountId ? { tradingAccountId: filters.tradingAccountId } : {}),
+      ...(filters.symbol ? { symbol: { contains: filters.symbol, mode: "insensitive" } } : {}),
+      ...(filters.result === "win" ? { netProfit: { gt: 0 } } : {}),
+      ...(filters.result === "loss" ? { netProfit: { lt: 0 } } : {}),
+      ...(filters.dateFrom || filters.dateTo
+        ? {
+            closeTime: {
+              ...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+              ...(filters.dateTo ? { lte: filters.dateTo } : {}),
+            },
+          }
+        : {}),
+    },
+    orderBy: { closeTime: "desc" },
+    select: {
+      id: true,
+      symbol: true,
+      type: true,
+      lots: true,
+      openPrice: true,
+      closePrice: true,
+      netProfit: true,
+      closeTime: true,
+      // Just the first screenshot — grid view only needs one
+      // thumbnail per card, not the full set (that's what the trade
+      // detail page is for).
+      screenshots: { take: 1, orderBy: { createdAt: "asc" }, select: { url: true } },
+    },
+  });
+
+  return trades.map((t) => ({
+    ...t,
+    screenshotUrl: t.screenshots[0]?.url ?? null,
+  }));
 }

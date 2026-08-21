@@ -1,10 +1,11 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { AccountOption } from "@/lib/analytics";
 
 export default function AccountSelector({ accounts }: { accounts: AccountOption[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentAccountId = searchParams.get("account") ?? "all";
 
@@ -15,7 +16,7 @@ export default function AccountSelector({ accounts }: { accounts: AccountOption[
     } else {
       params.set("account", e.target.value);
     }
-    router.push(`/?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}`);
   }
 
   if (accounts.length === 0) return null;
