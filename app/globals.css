@@ -33,3 +33,24 @@ body {
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
 }
+
+/* Dark mode overrides — deep charcoal-navy base with adjusted
+   sage green / terracotta red that stay legible against dark */
+.dark {
+  --color-bg-base: #0f1114;
+  --color-bg-surface: #1a1d21;
+  --color-bg-elevated: #232730;
+  --color-border: #2d3139;
+
+  --color-text-primary: #e8e6e3;
+  --color-text-muted: #9ca3af;
+
+  /* Keep the same hue relationships but adjust for dark background legibility */
+  --color-profit: #4ade80;
+  --color-profit-muted: #16412a;
+  --color-loss: #fb7185;
+  --color-loss-muted: #4c1d24;
+
+  --color-accent: #4ade80;
+  --color-accent-dark: #22c55e;
+}

@@ -29,30 +29,35 @@ export default function CandlestickChart({
     let chart: any;
     let cleanup = () => {};
 
-    (async () => {
+    const initChart = async () => {
       const { createChart, CandlestickSeries, ColorType } = await import("lightweight-charts");
       if (!containerRef.current) return;
+
+      // Get current CSS variable values
+      const getColorValue = (varName: string) => {
+        return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      };
 
       chart = createChart(containerRef.current, {
         width: containerRef.current.clientWidth,
         height: 320,
         layout: {
           background: { type: ColorType.Solid, color: "transparent" },
-          textColor: "var(--color-text-muted)",
+          textColor: getColorValue("--color-text-muted"),
         },
         grid: {
-          vertLines: { color: "var(--color-border)" },
-          horzLines: { color: "var(--color-border)" },
+          vertLines: { color: getColorValue("--color-border") },
+          horzLines: { color: getColorValue("--color-border") },
         },
         timeScale: { timeVisible: true, secondsVisible: false },
       });
 
       const series = chart.addSeries(CandlestickSeries, {
-        upColor: "var(--color-profit)",
-        downColor: "var(--color-loss)",
+        upColor: getColorValue("--color-profit"),
+        downColor: getColorValue("--color-loss"),
         borderVisible: false,
-        wickUpColor: "var(--color-profit)",
-        wickDownColor: "var(--color-loss)",
+        wickUpColor: getColorValue("--color-profit"),
+        wickDownColor: getColorValue("--color-loss"),
       });
 
       series.setData(bars);
@@ -66,14 +71,14 @@ export default function CandlestickChart({
         {
           time: entryTime,
           position: type === "BUY" ? "belowBar" : "aboveBar",
-          color: "var(--color-accent-dark)",
+          color: getColorValue("--color-accent-dark"),
           shape: type === "BUY" ? "arrowUp" : "arrowDown",
           text: `Entry ${entryPrice}`,
         },
         {
           time: exitTime,
           position: type === "BUY" ? "aboveBar" : "belowBar",
-          color: "var(--color-text-muted)",
+          color: getColorValue("--color-text-muted"),
           shape: "circle",
           text: `Exit ${exitPrice}`,
         },
@@ -86,12 +91,59 @@ export default function CandlestickChart({
           chart.applyOptions({ width: containerRef.current.clientWidth });
         }
       };
+
+      // Handle theme changes
+      const handleThemeChange = () => {
+        if (chart) {
+          chart.applyOptions({
+            layout: {
+              textColor: getColorValue("--color-text-muted"),
+            },
+            grid: {
+              vertLines: { color: getColorValue("--color-border") },
+              horzLines: { color: getColorValue("--color-border") },
+            },
+          });
+
+          // Update series colors
+          series.applyOptions({
+            upColor: getColorValue("--color-profit"),
+            downColor: getColorValue("--color-loss"),
+            wickUpColor: getColorValue("--color-profit"),
+            wickDownColor: getColorValue("--color-loss"),
+          });
+
+          // Update markers
+          series.setMarkers([
+            {
+              time: entryTime,
+              position: type === "BUY" ? "belowBar" : "aboveBar",
+              color: getColorValue("--color-accent-dark"),
+              shape: type === "BUY" ? "arrowUp" : "arrowDown",
+              text: `Entry ${entryPrice}`,
+            },
+            {
+              time: exitTime,
+              position: type === "BUY" ? "aboveBar" : "belowBar",
+              color: getColorValue("--color-text-muted"),
+              shape: "circle",
+              text: `Exit ${exitPrice}`,
+            },
+          ]);
+        }
+      };
+
       window.addEventListener("resize", handleResize);
+      window.addEventListener("themechange", handleThemeChange);
+      
       cleanup = () => {
         window.removeEventListener("resize", handleResize);
+        window.removeEventListener("themechange", handleThemeChange);
         chart.remove();
       };
-    })();
+    };
+
+    initChart();
 
     return () => cleanup();
   }, [bars, entryTime, entryPrice, exitTime, exitPrice, type]);

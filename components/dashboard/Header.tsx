@@ -1,7 +1,10 @@
-import { Plus, Upload } from "lucide-react";
+"use client";
+
+import { Plus, Upload, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import AccountSelector from "./Accountselector";
 import type { AccountOption } from "@/lib/analytics";
+import { useTheme } from "@/lib/use-theme";
 
 function formatLastSynced(date: Date | null): string {
   if (!date) return "No trades synced yet";
@@ -26,6 +29,8 @@ export default function Header({
   accounts: AccountOption[];
   lastSyncedAt: Date | null;
 }) {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
@@ -48,6 +53,15 @@ export default function Header({
             keeps them from just floating wherever there's leftover
             space when the header wraps on mobile. */}
         <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          {/* Theme toggle button */}
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-bg-surface text-text-primary transition-colors hover:bg-bg-elevated"
+          >
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+
           {/* Manual trade entry now exists — see app/(dashboard)/trades/new.
               Icon-only circle on mobile (label hidden), full pill with
               label at sm and up — matches the sidebar's own responsive

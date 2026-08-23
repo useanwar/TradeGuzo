@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Line, LineChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { EquityPoint } from "@/lib/analytics";
 
@@ -17,6 +18,14 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function EquityCurveChart({ data }: { data: EquityPoint[] }) {
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    const handleThemeChange = () => setKey(prev => prev + 1);
+    window.addEventListener("themechange", handleThemeChange);
+    return () => window.removeEventListener("themechange", handleThemeChange);
+  }, []);
+
   if (data.length === 0) {
     return (
       <div className="flex h-56 items-center justify-center text-sm text-text-muted">
@@ -26,7 +35,7 @@ export default function EquityCurveChart({ data }: { data: EquityPoint[] }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={260} key={key}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
         <XAxis

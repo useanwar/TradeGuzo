@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bar, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 import type { TagPerformance } from "@/lib/analytics";
 
@@ -24,16 +25,24 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 export default function TagPerformanceChart({ data }: { data: TagPerformance[] }) {
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    const handleThemeChange = () => setKey(prev => prev + 1);
+    window.addEventListener("themechange", handleThemeChange);
+    return () => window.removeEventListener("themechange", handleThemeChange);
+  }, []);
+
   if (data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-text-muted">
-        No tagged trades yet — add tags from any trade's detail page.
+        No tagged trades yet — add tags from any trade&apos;s detail page.
       </div>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 36)}>
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 36)} key={key}>
       <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
         <XAxis

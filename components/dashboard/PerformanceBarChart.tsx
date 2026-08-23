@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bar, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 type DataPoint = {
@@ -24,8 +25,16 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 export default function PerformanceBarChart({ data }: { data: DataPoint[] }) {
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    const handleThemeChange = () => setKey(prev => prev + 1);
+    window.addEventListener("themechange", handleThemeChange);
+    return () => window.removeEventListener("themechange", handleThemeChange);
+  }, []);
+
   return (
-    <ResponsiveContainer width="100%" height={220}>
+    <ResponsiveContainer width="100%" height={220} key={key}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
         <XAxis
