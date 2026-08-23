@@ -33,13 +33,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-bg-base px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg border border-neutral-800 bg-neutral-900 p-6"
+        className="w-full max-w-sm rounded-2xl border border-border bg-bg-surface p-6 shadow-sm"
       >
-        <h1 className="mb-4 text-lg font-medium text-neutral-100">
-          Trading Journal
+        <h1
+          className="mb-4 text-2xl font-bold tracking-tight text-text-primary"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Trade<span className="text-profit">G</span>uzo
         </h1>
         <input
           type="password"
@@ -47,17 +50,17 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
           autoFocus
-          className="mb-3 w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 outline-none focus:border-neutral-500"
+          className="mb-3 w-full rounded-lg border border-border bg-bg-surface px-3 py-2 text-text-primary outline-none focus:border-accent"
         />
         {error && (
-          <p className="mb-3 text-sm text-red-400" role="alert">
+          <p className="mb-3 text-sm text-loss" role="alert">
             {error}
           </p>
         )}
         <button
           type="submit"
           disabled={loading || password.length === 0}
-          className="w-full rounded-md bg-neutral-100 py-2 text-sm font-medium text-neutral-900 disabled:opacity-50"
+          className="w-full rounded-full bg-accent-dark py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {loading ? "Checking..." : "Sign in"}
         </button>

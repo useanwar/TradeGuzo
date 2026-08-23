@@ -29,15 +29,12 @@ export default function Header({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        {/* Logo placeholder — swap this div for an <Image> once the
-            real logo exists. Sized to match the text height so the
-            swap is a drop-in later. */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-dark font-mono text-sm font-bold text-white">
-          D
-        </div>
         <div>
-          <h1 className="text-lg font-semibold leading-tight text-text-primary">
-            Debter FX
+          <h1
+            className="text-2xl font-bold leading-tight tracking-tight text-text-primary"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Trade<span className="text-profit">G</span>uzo
           </h1>
           <p className="text-xs text-text-muted">{formatLastSynced(lastSyncedAt)}</p>
         </div>
