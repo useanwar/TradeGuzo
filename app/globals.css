@@ -54,3 +54,8 @@ body {
   --color-accent: #4ade80;
   --color-accent-dark: #22c55e;
 }
+
+@keyframes candle-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
