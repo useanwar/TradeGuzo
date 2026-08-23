@@ -555,3 +555,26 @@ export async function getFilteredTrades(filters: TradeFilters): Promise<RecentTr
     screenshotUrl: t.screenshots[0]?.url ?? null,
   }));
 }
+
+export type CandleBar = {
+  time: number; // unix seconds, what lightweight-charts expects
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+export async function getTradeCandles(tradeId: string): Promise<CandleBar[]> {
+  const candles = await prisma.tradeCandle.findMany({
+    where: { tradeId },
+    orderBy: { time: "asc" },
+  });
+
+  return candles.map((c) => ({
+    time: Math.floor(c.time.getTime() / 1000),
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+  }));
+}

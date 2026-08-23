@@ -91,6 +91,7 @@ model Trade {
 
   tags        TagOnTrade[]
   screenshots TradeScreenshot[]
+  candles     TradeCandle[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -111,6 +112,26 @@ model TradeScreenshot {
   trade   Trade   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+// Price bars around a trade's open/close, fetched from MT5 itself
+// (not a third-party API) via CopyRates() at the moment the trade
+// closes — MT5 already has a live authenticated connection to the
+// real broker feed, so this is free, rate-limit-free, and matches
+// the actual prices the trade executed against. Only populated for
+// trades closed after this feature shipped; older trades have none.
+model TradeCandle {
+  id     String   @id @default(uuid())
+  time   DateTime
+  open   Float
+  high   Float
+  low    Float
+  close  Float
+
+  tradeId String
+  trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, time])
 }
 
 model Tag {

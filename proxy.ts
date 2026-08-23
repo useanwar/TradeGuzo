@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/webhooks/trade",
   "/api/webhooks/last-sync",
+  "/api/webhooks/candles",
 ];
 
 export async function proxy(request: NextRequest) {

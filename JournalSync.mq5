@@ -8,6 +8,7 @@
 
 input string ServerUrl   = "http://127.0.0.1:3000/api/webhooks/trade"; // change to your deployed URL later
 input string LastSyncUrl = "http://127.0.0.1:3000/api/webhooks/last-sync"; // change to your deployed URL later
+input string CandlesUrl  = "http://127.0.0.1:3000/api/webhooks/candles"; // change to your deployed URL later
 input string EaSecretKey = "change_me_to_match_EA_SECRET_KEY_in_env";  // must match EA_SECRET_KEY in your .env
 
 // MAE/MFE tracking — MT5's trade history only stores the open and
@@ -228,6 +229,11 @@ void SendClosedTrade(ulong closeDealTicket)
    // grow forever over a long-running terminal session.
    if(hasMaeMfe)
       RemoveTrackedPosition(positionId);
+
+   // Fetch and send price bars around this trade — must happen AFTER
+   // the trade itself was sent above, since the candles endpoint
+   // looks the trade up by ticketId and needs it to already exist.
+   SendCandlesForTrade(positionId, symbol, openTime, closeTime);
 }
 
 //+------------------------------------------------------------------+
@@ -439,4 +445,94 @@ void CatchUpSync()
    }
 
    Print("Catch-up sync complete. Checked ", closingCount, " closed trade(s) in range.");
+}
+
+//+------------------------------------------------------------------+
+//| Picks a bar resolution and buffer window based on how long the    |
+//| trade was open. A 5-minute scalp and a 3-day swing trade need     |
+//| very different granularity — a fixed timeframe would either       |
+//| flood a long trade with thousands of bars, or show a short trade  |
+//| as basically flat on an hourly chart.                             |
+//+------------------------------------------------------------------+
+void PickTimeframeAndBuffer(int durationSeconds, ENUM_TIMEFRAMES &timeframe, int &bufferSeconds)
+{
+   if(durationSeconds <= 2 * 3600) // up to 2 hours — scalp/short intraday
+   {
+      timeframe = PERIOD_M1;
+      bufferSeconds = 15 * 60;
+   }
+   else if(durationSeconds <= 24 * 3600) // up to 1 day
+   {
+      timeframe = PERIOD_M15;
+      bufferSeconds = 2 * 3600;
+   }
+   else // multi-day swing trade
+   {
+      timeframe = PERIOD_H1;
+      bufferSeconds = 24 * 3600;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Fetch price bars covering this trade's lifetime (plus a bit of    |
+//| padding on each side for chart context) and send them as a        |
+//| follow-up call, linked to the trade by its ticket number.         |
+//+------------------------------------------------------------------+
+void SendCandlesForTrade(long ticketId, string symbol, datetime openTime, datetime closeTime)
+{
+   int durationSeconds = (int)(closeTime - openTime);
+
+   ENUM_TIMEFRAMES timeframe;
+   int bufferSeconds;
+   PickTimeframeAndBuffer(durationSeconds, timeframe, bufferSeconds);
+
+   datetime fromTime = openTime - bufferSeconds;
+   datetime toTime = closeTime + bufferSeconds;
+
+   MqlRates rates[];
+   int copied = CopyRates(symbol, timeframe, fromTime, toTime, rates);
+
+   if(copied <= 0)
+   {
+      Print("Could not fetch price bars for trade ", ticketId, ". Error: ", GetLastError());
+      return;
+   }
+
+   // Cap how many bars go in one request — even with duration-scaled
+   // timeframes, an unusually long trade could still produce a lot
+   // of bars. Trimming to the most recent MAX_BARS keeps the payload
+   // a sane size; the chart still gets a full, useful window even if
+   // the very earliest part of a long trade gets cut.
+   int MAX_BARS = 300;
+   int startIdx = (copied > MAX_BARS) ? (copied - MAX_BARS) : 0;
+
+   string barsJson = "[";
+   for(int i = startIdx; i < copied; i++)
+   {
+      if(i > startIdx) barsJson += ",";
+      barsJson += StringFormat(
+         "{\"time\":\"%s\",\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f}",
+         ToIso8601(rates[i].time), rates[i].open, rates[i].high, rates[i].low, rates[i].close
+      );
+   }
+   barsJson += "]";
+
+   string json = StringFormat("{\"ticketId\":%I64d,\"bars\":%s}", ticketId, barsJson);
+
+   string headers = "Content-Type: application/json\r\n" + "x-api-key: " + EaSecretKey + "\r\n";
+   char postData[];
+   StringToCharArray(json, postData, 0, StringLen(json));
+   char result[];
+   string resultHeaders;
+   int timeout = 15000;
+
+   int res = WebRequest("POST", CandlesUrl, headers, timeout, postData, result, resultHeaders);
+
+   if(res == -1)
+   {
+      Print("Failed to send candles for trade ", ticketId, ". Error code: ", GetLastError());
+      return;
+   }
+
+   Print("Sent ", (copied - startIdx), " price bars for trade ", ticketId, ". HTTP status: ", res);
 }
