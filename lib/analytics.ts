@@ -280,11 +280,13 @@ export type AccountOption = {
   accountNumber: string; // BigInt converted to string — BigInt can't
                           // cross the server/client component boundary
   brokerName: string;
+  currency: string;
+  initialBalance: number;
 };
 
 export async function getAllAccounts(): Promise<AccountOption[]> {
   const accounts = await prisma.tradingAccount.findMany({
-    select: { id: true, accountNumber: true, brokerName: true },
+    select: { id: true, accountNumber: true, brokerName: true, currency: true, initialBalance: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -292,6 +294,8 @@ export async function getAllAccounts(): Promise<AccountOption[]> {
     id: a.id,
     accountNumber: a.accountNumber.toString(),
     brokerName: a.brokerName,
+    currency: a.currency,
+    initialBalance: a.initialBalance,
   }));
 }
 
@@ -576,5 +580,21 @@ export async function getTradeCandles(tradeId: string): Promise<CandleBar[]> {
     high: c.high,
     low: c.low,
     close: c.close,
+  }));
+}
+
+export type TagWithCount = TagOption & { tradeCount: number };
+
+export async function getAllTagsWithCounts(): Promise<TagWithCount[]> {
+  const tags = await prisma.tag.findMany({
+    orderBy: { name: "asc" },
+    include: { _count: { select: { trades: true } } },
+  });
+
+  return tags.map((t) => ({
+    id: t.id,
+    name: t.name,
+    category: t.category,
+    tradeCount: t._count.trades,
   }));
 }
