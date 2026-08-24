@@ -574,13 +574,22 @@ export async function getTradeCandles(tradeId: string): Promise<CandleBar[]> {
     orderBy: { time: "asc" },
   });
 
-  return candles.map((c) => ({
-    time: Math.floor(c.time.getTime() / 1000),
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-  }));
+  // Defensive dedupe — the webhook route now prevents duplicate
+  // timestamps at write time (transaction + unique constraint), but
+  // this guards against any bad data already sitting in the database
+  // from before that fix, so an already-broken trade's chart heals
+  // itself the next time it's viewed rather than needing a manual
+  // database cleanup.
+  const seen = new Set<number>();
+  const deduped: CandleBar[] = [];
+  for (const c of candles) {
+    const time = Math.floor(c.time.getTime() / 1000);
+    if (seen.has(time)) continue;
+    seen.add(time);
+    deduped.push({ time, open: c.open, high: c.high, low: c.low, close: c.close });
+  }
+
+  return deduped;
 }
 
 export type TagWithCount = TagOption & { tradeCount: number };

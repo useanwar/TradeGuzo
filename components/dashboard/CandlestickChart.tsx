@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { CandleBar } from "@/lib/analytics";
+import {  createSeriesMarkers } from "lightweight-charts";
 
 export default function CandlestickChart({
   bars,
@@ -32,6 +33,9 @@ export default function CandlestickChart({
     const initChart = async () => {
       const { createChart, CandlestickSeries, ColorType } = await import("lightweight-charts");
       if (!containerRef.current) return;
+
+      // Clear any existing content to prevent duplicate charts
+      containerRef.current.innerHTML = '';
 
       // Get current CSS variable values
       const getColorValue = (varName: string) => {
@@ -67,7 +71,7 @@ export default function CandlestickChart({
       // Exit marker is always the opposite shape, colored neutrally
       // since "was this a good exit" isn't a color-codable fact the
       // way entry direction is.
-      series.setMarkers([
+      createSeriesMarkers(series, [
         {
           time: entryTime,
           position: type === "BUY" ? "belowBar" : "aboveBar",
@@ -114,7 +118,7 @@ export default function CandlestickChart({
           });
 
           // Update markers
-          series.setMarkers([
+          createSeriesMarkers(series, [
             {
               time: entryTime,
               position: type === "BUY" ? "belowBar" : "aboveBar",

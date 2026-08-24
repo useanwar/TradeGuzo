@@ -131,6 +131,11 @@ model TradeCandle {
   tradeId String
   trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 
+  // Prevents two duplicate EA instances (or any retry) from ever
+  // inserting two bars at the same timestamp for the same trade —
+  // exactly the bug that caused lightweight-charts' "must be asc
+  // ordered by time" crash.
+  @@unique([tradeId, time])
   @@index([tradeId, time])
 }
 
@@ -153,3 +158,11 @@ model TagOnTrade {
 
   @@id([tradeId, tagId])
 }
+
+// // This table was added manually to the database - including it here
+// // to resolve schema drift during migration
+// model playing_with_neon {
+//   id    Int    @id @default(autoincrement())
+//   name  String
+//   value Float? @db.Real
+// }

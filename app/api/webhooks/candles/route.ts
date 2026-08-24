@@ -40,22 +40,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Replace rather than append — if this trade's candles were
-  // already sent once (e.g. a retry, or catch-up sync resending the
-  // same trade), clear the old set first so we don't end up with
-  // duplicated/overlapping bars.
-  await prisma.tradeCandle.deleteMany({ where: { tradeId: trade.id } });
-
-  await prisma.tradeCandle.createMany({
-    data: bars.map((bar: any) => ({
-      tradeId: trade.id,
-      time: new Date(bar.time),
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    })),
-  });
+  // Wrapped in a transaction so this whole delete-then-insert is
+  // atomic — without this, two near-simultaneous requests (e.g. from
+  // two EA instances accidentally both attached and sending the same
+  // trade) could interleave: request A deletes, request B deletes,
+  // both insert, and you end up with duplicate rows at the same
+  // timestamp. That's exactly what caused lightweight-charts' "must
+  // be asc ordered by time" crash. skipDuplicates is a second safety
+  // net on top of the @@unique([tradeId, time]) constraint, in case
+  // any duplicate still slips through.
+  await prisma.$transaction([
+    prisma.tradeCandle.deleteMany({ where: { tradeId: trade.id } }),
+    prisma.tradeCandle.createMany({
+      data: bars.map((bar: any) => ({
+        tradeId: trade.id,
+        time: new Date(bar.time),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      })),
+      skipDuplicates: true,
+    }),
+  ]);
 
   return NextResponse.json({ ok: true, count: bars.length });
 }
