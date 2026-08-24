@@ -194,4 +194,4 @@ prisma/
 
 ## License
 
-_Choose a license for your repo (MIT is a common default for personal open-source projects) and replace this section._
+MIT — see [LICENSE](./LICENSE).
